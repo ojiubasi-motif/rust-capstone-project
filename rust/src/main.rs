@@ -47,7 +47,7 @@ fn main() -> bitcoincore_rpc::Result<()> {
 
     // Create/Load the wallets, named 'Miner' and 'Trader'. Have logic to optionally create/load them if they do not exist or not loaded already.
      let base_auth = Auth::UserPass(RPC_USER.to_owned(), RPC_PASS.to_owned());
-    //  ==>closure used to create/load wallets
+    //  ==>closure used to create/load wallets    
      let get_or_create_wallet = |wallet_name: &str| -> bitcoincore_rpc::Result<Client> {
         let loaded_wallets = rpc.list_wallets()?;
         if !loaded_wallets.contains(&wallet_name.to_string()) {
