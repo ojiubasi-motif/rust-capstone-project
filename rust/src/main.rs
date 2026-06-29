@@ -104,12 +104,71 @@ fn main() -> bitcoincore_rpc::Result<()> {
     )?;
     println!("Sent 20 BTC. Transaction ID (txid): {}", txid);
     // Check transaction in mempool
+    //==>Fetch and print the unconfirmed transaction entry from the mempool
+    let mempool_entry = miner_rpc.get_mempool_entry(&txid)?;
+    println!("Mempool Entry for {}: {:?}", txid, mempool_entry);
 
     // Mine 1 block to confirm the transaction
+    //==>Confirm the transaction by mining 1 block to the miner's address
+    let confirm_blocks = miner_rpc.generate_to_address(1, &miner_address)?;
+    let block_hash = confirm_blocks[0];
+    println!("Mined block hash: {}", block_hash);
 
     // Extract all required transaction details
+    //==>Fetch transaction details from the wallet
+    let tx_info = miner_rpc.get_transaction(&txid, None)?;
+    let raw_tx: bitcoincore_rpc::bitcoin::Transaction = bitcoincore_rpc::bitcoin::consensus::deserialize(&tx_info.hex)?;
+
+    //==>Get block height from header info
+    let header_info = miner_rpc.get_block_header_info(&block_hash)?;
+    let block_height = header_info.height;
+
+    //==>Get input address and amount dynamically by retrieving the spent output
+    let prev_txid = raw_tx.input[0].previous_output.txid;
+    let prev_vout = raw_tx.input[0].previous_output.vout as usize;
+    let prev_tx = miner_rpc.get_raw_transaction(&prev_txid, None)?;
+    
+    let input_script = &prev_tx.output[prev_vout].script_pubkey;
+    let input_address = bitcoincore_rpc::bitcoin::Address::from_script(input_script, bitcoincore_rpc::bitcoin::Network::Regtest)?;
+    let input_amount = prev_tx.output[prev_vout].value.to_btc();
+
+    //==>Identify the change address and change amount by checking outputs
+    let mut change_address = None;
+    let mut change_amount = 0.0;
+    let mut trader_output_amount = 0.0;
+
+    for output in &raw_tx.output {
+        let addr = bitcoincore_rpc::bitcoin::Address::from_script(&output.script_pubkey, bitcoincore_rpc::bitcoin::Network::Regtest)?;
+        if addr == trader_address {
+            trader_output_amount = output.value.to_btc();
+        } else {
+            change_address = Some(addr);
+            change_amount = output.value.to_btc();
+        }
+    }
+
+    let change_address = change_address.expect("Change address not found");
+    let fee_btc = tx_info.fee.map(|f| f.to_btc()).unwrap_or(0.0);
+
 
     // Write the data to ../out.txt in the specified format given in readme.md
+    //==>Write the output attributes line by line to out.txt in the repository root
+    let out_content = format!(
+        "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
+        txid,
+        input_address,
+        input_amount,
+        trader_address,
+        trader_output_amount,
+        change_address,
+        change_amount,
+        fee_btc,
+        block_height,
+        block_hash
+    );
+    let mut file = File::create("../out.txt")?;
+    file.write_all(out_content.as_bytes())?;
+    println!("Successfully wrote transaction details to out.txt");
 
     Ok(())
 }
