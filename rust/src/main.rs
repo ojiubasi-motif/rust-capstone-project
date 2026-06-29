@@ -64,7 +64,7 @@ fn main() -> bitcoincore_rpc::Result<()> {
         }
         // Return a wallet-specific client pointing to the RPC wallet endpoint
         Client::new(
-            format!("{}/wallet/{}", RPC_URL, wallet_name),
+            &format!("{}/wallet/{}", RPC_URL, wallet_name),
             base_auth.clone(),
         )
     };
@@ -129,7 +129,8 @@ fn main() -> bitcoincore_rpc::Result<()> {
     let prev_tx = miner_rpc.get_raw_transaction(&prev_txid, None)?;
     
     let input_script = &prev_tx.output[prev_vout].script_pubkey;
-    let input_address = bitcoincore_rpc::bitcoin::Address::from_script(input_script, bitcoincore_rpc::bitcoin::Network::Regtest)?;
+    let input_address = bitcoincore_rpc::bitcoin::Address::from_script(input_script, bitcoincore_rpc::bitcoin::Network::Regtest)
+        .expect("Failed to parse input address from script");
     let input_amount = prev_tx.output[prev_vout].value.to_btc();
 
     //==>Identify the change address and change amount by checking outputs
@@ -138,7 +139,8 @@ fn main() -> bitcoincore_rpc::Result<()> {
     let mut trader_output_amount = 0.0;
 
     for output in &raw_tx.output {
-        let addr = bitcoincore_rpc::bitcoin::Address::from_script(&output.script_pubkey, bitcoincore_rpc::bitcoin::Network::Regtest)?;
+        let addr = bitcoincore_rpc::bitcoin::Address::from_script(&output.script_pubkey, bitcoincore_rpc::bitcoin::Network::Regtest)
+            .expect("Failed to parse output address from script");
         if addr == trader_address {
             trader_output_amount = output.value.to_btc();
         } else {
