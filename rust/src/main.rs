@@ -46,6 +46,31 @@ fn main() -> bitcoincore_rpc::Result<()> {
     println!("Blockchain Info: {:?}", blockchain_info);
 
     // Create/Load the wallets, named 'Miner' and 'Trader'. Have logic to optionally create/load them if they do not exist or not loaded already.
+     let base_auth = Auth::UserPass(RPC_USER.to_owned(), RPC_PASS.to_owned());
+    //  ==>closure used to create/load wallets
+     let get_or_create_wallet = |wallet_name: &str| -> bitcoincore_rpc::Result<Client> {
+        let loaded_wallets = rpc.list_wallets()?;
+        if !loaded_wallets.contains(&wallet_name.to_string()) {
+            let wallet_dir = rpc.list_wallet_dir()?;
+            if wallet_dir.contains(&wallet_name.to_string()) {
+                rpc.load_wallet(wallet_name)?;
+                println!("Loaded wallet: {}", wallet_name);
+            } else {
+                rpc.create_wallet(wallet_name, None, None, None, None)?;
+                println!("Created wallet: {}", wallet_name);
+            }
+        } else {
+            println!("Wallet {} is already loaded", wallet_name);
+        }
+        // Return a wallet-specific client pointing to the RPC wallet endpoint
+        Client::new(
+            format!("{}/wallet/{}", RPC_URL, wallet_name),
+            base_auth.clone(),
+        )
+    };
+    // ===> call the closure to create/load wallets
+    let miner_rpc = get_or_create_wallet("Miner")?;
+    let trader_rpc = get_or_create_wallet("Trader")?;
 
     // Generate spendable balances in the Miner wallet. How many blocks needs to be mined?
 
