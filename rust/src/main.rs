@@ -73,11 +73,36 @@ fn main() -> bitcoincore_rpc::Result<()> {
     let trader_rpc = get_or_create_wallet("Trader")?;
 
     // Generate spendable balances in the Miner wallet. How many blocks needs to be mined?
+     let miner_address = miner_rpc.get_new_address(Some("Mining Reward"), None)?.assume_checked();
+    //==> In Bitcoin (and especially regtest), coinbase block rewards are subject to a 100-block 
+    // maturity rule. They cannot be spent until at least 100 blocks have been mined on top of them.
+    // Therefore, mining 101 blocks is required to mature the very first block reward,
+    // which then registers as a positive wallet balance of 50 BTC.
+    let blocks_to_mine = 101;
+    miner_rpc.generate_to_address(blocks_to_mine, &miner_address)?;
+    // Print the balance of the Miner wallet
+    let miner_balance = miner_rpc.get_balance(None, None)?;
+    println!("Miner Wallet Balance: {}", miner_balance);
 
+    
     // Load Trader wallet and generate a new address
+    // ==>Create a receiving address labeled "Received" from the Trader wallet
+    let trader_address = trader_rpc.get_new_address(Some("Received"), None)?.assume_checked();
+    println!("Trader Address: {}", trader_address);
 
     // Send 20 BTC from Miner to Trader
-
+    let amount_to_send = Amount::from_btc(20.0).expect("Invalid amount");
+    let txid = miner_rpc.send_to_address(
+        &trader_address,
+        amount_to_send,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )?;
+    println!("Sent 20 BTC. Transaction ID (txid): {}", txid);
     // Check transaction in mempool
 
     // Mine 1 block to confirm the transaction
