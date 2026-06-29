@@ -46,9 +46,9 @@ fn main() -> bitcoincore_rpc::Result<()> {
     println!("Blockchain Info: {:?}", blockchain_info);
 
     // Create/Load the wallets, named 'Miner' and 'Trader'. Have logic to optionally create/load them if they do not exist or not loaded already.
-     let base_auth = Auth::UserPass(RPC_USER.to_owned(), RPC_PASS.to_owned());
-    //  ==>closure used to create/load wallets    
-     let get_or_create_wallet = |wallet_name: &str| -> bitcoincore_rpc::Result<Client> {
+    let base_auth = Auth::UserPass(RPC_USER.to_owned(), RPC_PASS.to_owned());
+    //  ==>closure used to create/load wallets
+    let get_or_create_wallet = |wallet_name: &str| -> bitcoincore_rpc::Result<Client> {
         let loaded_wallets = rpc.list_wallets()?;
         if !loaded_wallets.contains(&wallet_name.to_string()) {
             let wallet_dir = rpc.list_wallet_dir()?;
@@ -73,8 +73,10 @@ fn main() -> bitcoincore_rpc::Result<()> {
     let trader_rpc = get_or_create_wallet("Trader")?;
 
     // Generate spendable balances in the Miner wallet. How many blocks needs to be mined?
-     let miner_address = miner_rpc.get_new_address(Some("Mining Reward"), None)?.assume_checked();
-    //==> In Bitcoin (and especially regtest), coinbase block rewards are subject to a 100-block 
+    let miner_address = miner_rpc
+        .get_new_address(Some("Mining Reward"), None)?
+        .assume_checked();
+    //==> In Bitcoin (and especially regtest), coinbase block rewards are subject to a 100-block
     // maturity rule. They cannot be spent until at least 100 blocks have been mined on top of them.
     // Therefore, mining 101 blocks is required to mature the very first block reward,
     // which then registers as a positive wallet balance of 50 BTC.
@@ -84,10 +86,11 @@ fn main() -> bitcoincore_rpc::Result<()> {
     let miner_balance = miner_rpc.get_balance(None, None)?;
     println!("Miner Wallet Balance: {}", miner_balance);
 
-    
     // Load Trader wallet and generate a new address
     // ==>Create a receiving address labeled "Received" from the Trader wallet
-    let trader_address = trader_rpc.get_new_address(Some("Received"), None)?.assume_checked();
+    let trader_address = trader_rpc
+        .get_new_address(Some("Received"), None)?
+        .assume_checked();
     println!("Trader Address: {}", trader_address);
 
     // Send 20 BTC from Miner to Trader
@@ -117,7 +120,8 @@ fn main() -> bitcoincore_rpc::Result<()> {
     // Extract all required transaction details
     //==>Fetch transaction details from the wallet
     let tx_info = miner_rpc.get_transaction(&txid, None)?;
-    let raw_tx: bitcoincore_rpc::bitcoin::Transaction = bitcoincore_rpc::bitcoin::consensus::deserialize(&tx_info.hex)?;
+    let raw_tx: bitcoincore_rpc::bitcoin::Transaction =
+        bitcoincore_rpc::bitcoin::consensus::deserialize(&tx_info.hex)?;
 
     //==>Get block height from header info
     let header_info = miner_rpc.get_block_header_info(&block_hash)?;
@@ -127,10 +131,13 @@ fn main() -> bitcoincore_rpc::Result<()> {
     let prev_txid = raw_tx.input[0].previous_output.txid;
     let prev_vout = raw_tx.input[0].previous_output.vout as usize;
     let prev_tx = miner_rpc.get_raw_transaction(&prev_txid, None)?;
-    
+
     let input_script = &prev_tx.output[prev_vout].script_pubkey;
-    let input_address = bitcoincore_rpc::bitcoin::Address::from_script(input_script, bitcoincore_rpc::bitcoin::Network::Regtest)
-        .expect("Failed to parse input address from script");
+    let input_address = bitcoincore_rpc::bitcoin::Address::from_script(
+        input_script,
+        bitcoincore_rpc::bitcoin::Network::Regtest,
+    )
+    .expect("Failed to parse input address from script");
     let input_amount = prev_tx.output[prev_vout].value.to_btc();
 
     //==>Identify the change address and change amount by checking outputs
@@ -139,8 +146,11 @@ fn main() -> bitcoincore_rpc::Result<()> {
     let mut trader_output_amount = 0.0;
 
     for output in &raw_tx.output {
-        let addr = bitcoincore_rpc::bitcoin::Address::from_script(&output.script_pubkey, bitcoincore_rpc::bitcoin::Network::Regtest)
-            .expect("Failed to parse output address from script");
+        let addr = bitcoincore_rpc::bitcoin::Address::from_script(
+            &output.script_pubkey,
+            bitcoincore_rpc::bitcoin::Network::Regtest,
+        )
+        .expect("Failed to parse output address from script");
         if addr == trader_address {
             trader_output_amount = output.value.to_btc();
         } else {
@@ -151,7 +161,6 @@ fn main() -> bitcoincore_rpc::Result<()> {
 
     let change_address = change_address.expect("Change address not found");
     let fee_btc = tx_info.fee.map(|f| f.to_btc()).unwrap_or(0.0);
-
 
     // Write the data to ../out.txt in the specified format given in readme.md
     //==>Write the output attributes line by line to out.txt in the repository root
